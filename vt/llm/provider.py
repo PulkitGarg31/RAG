@@ -7,6 +7,20 @@ class LLMProvider(Protocol):
     def complete_json(self, system: str, user: str) -> str: ...
 
 
+class ProviderError(Exception):
+    """The LLM call itself failed: unreachable server, timeout, SDK error, or no text back."""
+
+
+def complete_json_checked(provider: LLMProvider, system: str, user: str) -> str:
+    try:
+        raw = provider.complete_json(system, user)
+    except Exception as e:
+        raise ProviderError(f"{type(e).__name__}: {e}") from e
+    if not isinstance(raw, str):
+        raise ProviderError(f"provider returned {type(raw).__name__}, not text")
+    return raw
+
+
 class OllamaProvider:
     def complete_json(self, system: str, user: str) -> str:
         import ollama

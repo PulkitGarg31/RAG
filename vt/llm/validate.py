@@ -23,6 +23,7 @@ class ValidationResult:
     ok: bool
     verdict: VerdictOutput | None
     error: str | None
+    stage: str
 
 
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
@@ -52,17 +53,17 @@ def extract_json(raw: object) -> JsonValue:
 def validate_verdict(raw: str | None, evidence_ids: set[str]) -> ValidationResult:
     data = extract_json(raw)
     if not isinstance(data, dict):
-        return ValidationResult(ok=False, verdict=None, error="response was not a JSON object")
+        return ValidationResult(ok=False, verdict=None, error="response was not a JSON object", stage="json")
 
     try:
         verdict = VerdictOutput.model_validate(data)
     except ValidationError as e:
-        return ValidationResult(ok=False, verdict=None, error=str(e))
+        return ValidationResult(ok=False, verdict=None, error=str(e), stage="schema")
 
     unknown = [c for c in verdict.citations if c not in evidence_ids]
     if unknown:
         return ValidationResult(
-            ok=False, verdict=None, error=f"citations not in evidence: {unknown}"
+            ok=False, verdict=None, error=f"citations not in evidence: {unknown}", stage="citations"
         )
 
-    return ValidationResult(ok=True, verdict=verdict, error=None)
+    return ValidationResult(ok=True, verdict=verdict, error=None, stage="ok")

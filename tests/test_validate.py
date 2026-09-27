@@ -42,3 +42,10 @@ def test_none_response_is_rejected_not_crashing():
 def test_non_object_json_is_rejected():
     result = validate_verdict('["a", "b"]', evidence_ids={"GHSA-1"})
     assert not result.ok
+
+
+def test_validation_stage_distinguishes_bad_json_schema_and_citations():
+    assert validate_verdict("nope", {"GHSA-1"}).stage == "json"
+    assert validate_verdict('{"summary": "s"}', {"GHSA-1"}).stage == "schema"
+    assert validate_verdict('{"summary": "s", "rationale": "r", "citations": ["X"]}', {"GHSA-1"}).stage == "citations"
+    assert validate_verdict('{"summary": "s", "rationale": "r", "citations": ["GHSA-1"]}', {"GHSA-1"}).stage == "ok"

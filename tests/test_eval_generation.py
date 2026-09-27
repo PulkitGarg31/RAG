@@ -16,3 +16,11 @@ def test_summarize_counters_handles_zero_total():
     result = summarize_counters(verified_count=0, total_findings=0)
     assert result["json_valid_rate"] == 0.0
     assert result["min_safe_version_verified_rate"] == 0.0
+
+
+def test_summarize_counters_reports_provider_errors_separately():
+    verdict_module.counters.update({"json_valid": 5, "citation_valid": 4, "fallback": 6, "provider_error": 2, "total": 10})
+    result = summarize_counters(verified_count=0, total_findings=10)
+    assert result["json_valid_rate"] == 0.5
+    assert result["citation_valid_rate"] == 0.4
+    assert result["provider_error_rate"] == 0.2

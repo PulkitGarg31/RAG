@@ -209,12 +209,15 @@ def eval_retrieval_cmd() -> None:
 
 
 @eval_app.command("generation")
-def eval_generation_cmd() -> None:
+def eval_generation_cmd(limit: int = typer.Option(40, "--limit", help="LLM verdicts on a fixed-seed sample of this many findings.")) -> None:
     from vt.eval.generation import run_generation_checks
 
-    result = run_generation_checks(["tests/fixtures/requirements_demo.txt"])
-    for key, value in result.items():
+    rates, counts = run_generation_checks(["tests/fixtures/requirements_demo.txt"], limit=limit)
+    for key, value in counts.items():
+        console.print(f"{key}: {value}")
+    for key, value in rates.items():
         console.print(f"{key}: {value:.2%}")
+    console.print("Sampled verdicts written to reports/generation_findings.json")
 
 
 if __name__ == "__main__":

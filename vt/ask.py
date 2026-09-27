@@ -1,6 +1,7 @@
 import logging
 
 from vt.llm.prompts import build_user_prompt
+from vt.llm.provider import ProviderError, complete_json_checked
 from vt.llm.validate import extract_json
 from vt.models import Finding
 
@@ -52,12 +53,16 @@ def answer_question(question: str, findings: list[Finding], retrieved_chunks: li
     evidence_ids = {"FACT:findings", *(c.chunk_id for c in retrieved_chunks)}
     user_prompt = f"{build_user_prompt(dossier)}\n\nQuestion: {question}"
 
-    raw = provider.complete_json(ASK_SYSTEM_PROMPT, user_prompt)
-    ok, data, error = _validate_answer(raw, evidence_ids)
-    if not ok:
-        retry_prompt = f"{user_prompt}\n\nPrevious attempt failed validation: {error}. Try again."
-        raw = provider.complete_json(ASK_SYSTEM_PROMPT, retry_prompt)
+    try:
+        raw = complete_json_checked(provider, ASK_SYSTEM_PROMPT, user_prompt)
         ok, data, error = _validate_answer(raw, evidence_ids)
+        if not ok:
+            retry_prompt = f"{user_prompt}\n\nPrevious attempt failed validation: {error}. Try again."
+            raw = complete_json_checked(provider, ASK_SYSTEM_PROMPT, retry_prompt)
+            ok, data, error = _validate_answer(raw, evidence_ids)
+    except ProviderError:
+        logger.warning("LLM provider failed while answering", exc_info=True)
+        return {"answer": "The language model is unavailable right now; no answer was generated.", "citations": []}
 
     if ok:
         return {"answer": data.get("answer", ""), "citations": data.get("citations", [])}
