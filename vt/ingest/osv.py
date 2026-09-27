@@ -1,3 +1,4 @@
+import logging
 import re
 import zipfile
 from pathlib import Path
@@ -7,6 +8,8 @@ from cvss import CVSS3
 
 from vt.models import Advisory
 from vt.normalize import normalize_package
+
+logger = logging.getLogger(__name__)
 
 OSV_ALL_ZIP_URL = "https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip"
 
@@ -30,6 +33,12 @@ def parse_osv_record(record: dict) -> Advisory | None:
     ]
     if not pypi_affected:
         return None
+
+    if len(pypi_affected) > 1:
+        logger.warning(
+            "OSV record %s lists %d PyPI-affected packages; using the first (%s)",
+            record.get("id"), len(pypi_affected), pypi_affected[0]["package"]["name"],
+        )
 
     package = normalize_package(pypi_affected[0]["package"]["name"])
 

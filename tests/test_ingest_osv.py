@@ -41,3 +41,19 @@ def test_parse_osv_record_refs_split_by_type():
     adv = parse_osv_record(_load("osv_jinja2.json"))
     fix_refs = [r for r in adv.refs if r["type"] == "FIX"]
     assert len(fix_refs) == 1
+
+
+def test_parse_osv_record_logs_when_multiple_pypi_packages(caplog):
+    import logging
+
+    rec = _load("osv_jinja2.json")
+    rec["affected"].append(
+        {
+            "package": {"name": "Flask", "ecosystem": "PyPI"},
+            "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "2.0.0"}]}],
+        }
+    )
+    with caplog.at_level(logging.WARNING):
+        adv = parse_osv_record(rec)
+    assert adv is not None
+    assert any("lists 2 PyPI-affected packages" in r.message for r in caplog.records)
