@@ -11,7 +11,8 @@ class OllamaProvider:
     def complete_json(self, system: str, user: str) -> str:
         import ollama
 
-        response = ollama.chat(
+        client = ollama.Client(timeout=settings.ollama_timeout)
+        response = client.chat(
             model=settings.ollama_model,
             format="json",
             messages=[

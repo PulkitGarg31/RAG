@@ -4,6 +4,11 @@ from vt.llm.prompts import SYSTEM_PROMPT, build_user_prompt
 from vt.llm.validate import validate_verdict
 
 # Module-level counters for the eval report (Task 18)
+# NOTE: process-lifetime cumulative — never reset except at module import.
+# Safe for one-shot CLI runs (fresh process each time); if this is ever read
+# from a long-running server process (e.g. vt/api.py's uvicorn process) for
+# a "this request's stats" signal, it will silently blend counts across
+# unrelated requests/scans unless explicitly reset or scoped per-request.
 counters = {"json_valid": 0, "citation_valid": 0, "fallback": 0, "total": 0}
 
 

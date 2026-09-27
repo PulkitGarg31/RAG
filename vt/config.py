@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://vt:vt@localhost:5432/vulntriage"
     llm_provider: str = "ollama"
     ollama_model: str = "llama3.2:3b"
+    ollama_timeout: float = 120.0
     gemini_api_key: str = ""
     embed_model: str = "BAAI/bge-small-en-v1.5"
     rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
