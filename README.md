@@ -175,8 +175,7 @@ a whole-repo review and fixed before the numbers above were re-measured:
   GHSA-8… (1,929 after dropping 71 withdrawn records), plus the 198 advisories the demo scan fetched
   live. The full OSV PyPI corpus is ~25,700 records. The retrieval and generation numbers reflect
   this smaller corpus and aren't extrapolated; scan findings don't depend on it (see Sample output).
-  A full ingest + re-index is a straightforward follow-up (the spec's own accepted cut-list item:
-  "evaluate on a subset and say so").
+  A full ingest + re-index is a straightforward follow-up.
 - **Retrieval eval set is 53 queries** (all 53 evaluated, 0 skipped), not the ~150 originally
   targeted (see Results).
 - **Citation-valid is not the same as faithful.** The local `llama3.2:3b` produces citation-valid

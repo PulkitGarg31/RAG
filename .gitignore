@@ -12,9 +12,6 @@ reports/
 # Local port remap (this machine has a native Postgres on 5432)
 docker-compose.override.yml
 
-# Claude Code local session state
-.claude/
-
 # Python
 __pycache__/
 *.pyc
