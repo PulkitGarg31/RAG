@@ -164,3 +164,55 @@ def test_scan_fetches_advisories_missing_from_local_corpus(monkeypatch):
     assert body["findings"][0]["min_safe_version"] == "2.11.3"
     assert body["findings"][0]["verified"] is True
     assert [row[0] for row in upserts] == ["GHSA-remote"]
+
+
+@respx.mock
+def test_scan_does_not_report_withdrawn_advisories_as_skipped(monkeypatch):
+    respx.post("https://api.osv.dev/v1/querybatch").mock(side_effect=[
+        httpx.Response(200, json={"results": [{"vulns": [{"id": "GHSA-remote"}, {"id": "GHSA-gone"}]}]}),  # the scan
+        httpx.Response(200, json={"results": [{"vulns": []}]}),                                            # verification
+    ])
+    record = {
+        "id": "GHSA-remote", "aliases": ["CVE-2099-0001"], "summary": "s", "details": "d",
+        "severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}],
+        "affected": [{"package": {"name": "jinja2", "ecosystem": "PyPI"},
+                      "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "2.11.3"}]}]}],
+        "references": [],
+    }
+    withdrawn = dict(record, id="GHSA-gone", withdrawn="2021-01-01T00:00:00Z")
+    respx.get("https://api.osv.dev/v1/vulns/GHSA-remote").mock(return_value=httpx.Response(200, json=record))
+    respx.get("https://api.osv.dev/v1/vulns/GHSA-gone").mock(return_value=httpx.Response(200, json=withdrawn))
+
+    class FakeCursor:
+        def execute(self, sql, params=None):
+            pass
+
+        def executemany(self, sql, rows):
+            pass
+
+        def fetchall(self):
+            return []  # nothing local, no KEV hits
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    class FakeConn:
+        def cursor(self):
+            return FakeCursor()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr("vt.scanner.scan.get_conn", lambda: FakeConn())
+    monkeypatch.setattr("vt.scanner.scan.epss_for", lambda conn, cves: {})
+
+    body = TestClient(app).post("/scan?use_llm=false", json={"requirements": "jinja2==2.10\n"}).json()
+
+    assert body["skipped"] == []
+    assert [f["advisory_id"] for f in body["findings"]] == ["GHSA-remote"]

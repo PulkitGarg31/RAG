@@ -86,7 +86,7 @@ def epss_for(conn, cves: list[str]) -> dict[str, EpssEntry]:
     if missing:
         try:
             fetched = [e for batch in chunk_cves(missing, size=100) for e in fetch_epss(batch)]
-        except httpx.HTTPError:
+        except (httpx.HTTPError, ValueError):
             logger.warning("EPSS fetch failed for %d CVEs; using cached scores only", len(missing))
             fetched = []
         if fetched:

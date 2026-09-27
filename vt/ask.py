@@ -78,7 +78,7 @@ def ask_scan(scan_id: str, question: str, store, provider) -> dict:
         return {"answer": "Unknown scan_id.", "citations": []}
 
     findings = [Finding(**f) for f in record["findings"]]
-    advisory_filter = {f.advisory_id for f in findings}
+    advisory_filter = {x for f in findings for x in (f.advisory_id, *f.aliases)}
 
     chunks = []
     try:

@@ -44,3 +44,9 @@ def test_fetch_vulns_skips_ids_that_fail():
     respx.get("https://api.osv.dev/v1/vulns/GHSA-ok").mock(return_value=httpx.Response(200, json={"id": "GHSA-ok"}))
     respx.get("https://api.osv.dev/v1/vulns/GHSA-404").mock(return_value=httpx.Response(404))
     assert fetch_vulns(["GHSA-ok", "GHSA-404"]) == {"GHSA-ok": {"id": "GHSA-ok"}}
+
+
+@respx.mock
+def test_fetch_vulns_skips_non_json_bodies():
+    respx.get("https://api.osv.dev/v1/vulns/GHSA-html").mock(return_value=httpx.Response(200, text="<html>maintenance</html>"))
+    assert fetch_vulns(["GHSA-html"]) == {}

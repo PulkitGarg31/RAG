@@ -15,7 +15,12 @@ logger = logging.getLogger(__name__)
 # a "this request's stats" signal, it will silently blend counts across
 # unrelated requests/scans unless explicitly reset or scoped per-request.
 # json_valid/citation_valid are judged on each finding's final LLM response.
-counters = {"json_valid": 0, "citation_valid": 0, "fallback": 0, "provider_error": 0, "total": 0}
+# not_attempted counts findings that never reached the LLM (no provider, or it failed earlier in
+# the batch); LLM rates exclude them.
+counters = {
+    "json_valid": 0, "citation_valid": 0, "fallback": 0, "provider_error": 0, "total": 0,
+    "not_attempted": 0,
+}
 
 
 def _template_fallback(finding: Finding, advisory: Advisory) -> tuple[str, str, list[str]]:
@@ -39,6 +44,7 @@ def generate_verdict(finding: Finding, advisory: Advisory, kev_entry: KevEntry |
     counters["total"] += 1
     if provider is None:
         counters["fallback"] += 1
+        counters["not_attempted"] += 1
         _apply_template(finding, advisory)
         return finding
 
@@ -105,7 +111,7 @@ def fill_verdicts(findings: list[Finding]) -> list[Finding]:
             chunks = []
             if reranked is not None and provider is not None:
                 query = f"{finding.package} {advisory.summary or ''}"
-                hits = reranked.search(query, k=5, advisory_filter={advisory.id})
+                hits = reranked.search(query, k=5, advisory_filter={advisory.id, *finding.aliases})
                 chunks = [Chunk(id=h.chunk_id, advisory_id=h.advisory_id, kind="", header="", content=h.text) for h in hits]
 
             try:

@@ -60,3 +60,16 @@ def test_dense_unfiltered_search_raises_ef_search_to_k(monkeypatch):
     first_sql, first_params = fake_cursor.execute.call_args_list[0][0]
     assert "set_config('hnsw.ef_search'" in first_sql
     assert first_params == ("50",)
+
+
+def test_dense_unfiltered_search_caps_ef_search_at_1000(monkeypatch):
+    fake_conn = MagicMock()
+    fake_cursor = fake_conn.cursor.return_value.__enter__.return_value
+    fake_cursor.fetchall.return_value = []
+    monkeypatch.setattr("vt.retrieval.dense.embed_query", lambda q: [0.1] * 384)
+
+    DenseRetriever(get_conn=lambda: fake_conn).search("q", k=5000)
+
+    first_sql, first_params = fake_cursor.execute.call_args_list[0][0]
+    assert "set_config('hnsw.ef_search'" in first_sql
+    assert first_params == ("1000",)

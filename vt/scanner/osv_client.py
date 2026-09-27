@@ -34,6 +34,6 @@ def fetch_vulns(vuln_ids: list[str]) -> dict[str, dict]:
                 r = client.get(OSV_VULN_URL.format(vid))
                 r.raise_for_status()
                 records[vid] = r.json()
-            except httpx.HTTPError:
+            except (httpx.HTTPError, ValueError):
                 continue
     return records

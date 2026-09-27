@@ -53,3 +53,12 @@ def test_epss_for_falls_back_to_cache_when_first_is_down():
     out = epss_for(conn, ["CVE-1", "CVE-2"])
 
     assert set(out) == {"CVE-1"}
+
+
+@respx.mock
+def test_epss_for_falls_back_to_cache_on_non_json_body():
+    conn = MagicMock()
+    cur = conn.cursor.return_value.__enter__.return_value
+    cur.fetchall.return_value = [("CVE-1", 0.1, 0.5, "2026-09-27")]
+    respx.get(host="api.first.org", path="/data/v1/epss").mock(return_value=httpx.Response(200, text="<html>down</html>"))
+    assert set(epss_for(conn, ["CVE-1", "CVE-2"])) == {"CVE-1"}

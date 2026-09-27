@@ -142,6 +142,7 @@ def scan_cmd(
     no_llm: bool = typer.Option(False, "--no-llm"),
 ) -> None:
     from pathlib import Path
+    from rich.markup import escape
     from rich.table import Table
     from vt.scanner.scan import scan_requirements_text
 
@@ -161,7 +162,7 @@ def scan_cmd(
     console.print(table)
 
     for s in skipped:
-        console.print(f"[yellow]Skipped {s['package']}: {s['reason']}[/yellow]")
+        console.print(f"[yellow]Skipped {escape(s['package'])}: {escape(s['reason'])}[/yellow]")
 
     if json_out:
         import json as jsonlib
@@ -223,6 +224,12 @@ def eval_generation_cmd(limit: int = typer.Option(40, "--limit", help="LLM verdi
     for key, value in rates.items():
         console.print(f"{key}: {value:.2%}")
     console.print("Sampled verdicts written to reports/generation_findings.json")
+
+    if counts["not_attempted"] > 0:
+        console.print(
+            f"[red]LLM provider failed during the run: {counts['not_attempted']} of {counts['llm_sample']} "
+            f"sampled findings never reached the LLM; LLM rates are over the {counts['llm_attempted']} that did.[/red]"
+        )
 
 
 if __name__ == "__main__":

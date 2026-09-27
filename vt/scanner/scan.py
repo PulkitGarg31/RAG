@@ -13,6 +13,8 @@ from vt.scanner.versions import min_safe_version
 
 _PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
 _ADVISORY_COLUMNS = "id, package, aliases, cve_ids, group_id, affected, fixed_versions, cvss_score"
+_FETCH_FAILED = "could not be fetched from OSV"
+_NOT_USABLE = "withdrawn or not a PyPI advisory"
 
 
 def _row_to_advisory(row) -> Advisory:
@@ -87,11 +89,11 @@ def fetch_missing_advisories(vuln_ids: list[str], fetch=fetch_vulns) -> tuple[li
     for vid in vuln_ids:
         record = records.get(vid)
         if record is None:
-            unresolved[vid] = "could not be fetched from OSV"
+            unresolved[vid] = _FETCH_FAILED
             continue
         adv = parse_osv_record(record)
         if adv is None:
-            unresolved[vid] = "withdrawn or not a PyPI advisory"
+            unresolved[vid] = _NOT_USABLE
             continue
         advisories.append(adv)
     return advisories, unresolved
@@ -170,8 +172,11 @@ def scan_requirements_text(text: str) -> tuple[list[Finding], list[dict]]:
                 advisories_by_id.update({a.id: a for a in fetched})
             for (package, _version), vuln_ids in zip(pinned, vuln_id_lists):
                 for vid in vuln_ids:
-                    if vid in unresolved:
-                        skipped.append({"package": package, "reason": f"{vid}: {unresolved[vid]}"})
+                    if unresolved.get(vid) == _FETCH_FAILED:
+                        skipped.append({
+                            "package": package,
+                            "reason": f"advisory {vid} could not be fetched from OSV; it is missing from this scan",
+                        })
 
         advisories_by_pin = attribute_advisories(pinned, vuln_id_lists, advisories_by_id)
 
