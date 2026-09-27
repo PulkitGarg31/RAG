@@ -7,6 +7,9 @@ console = Console()
 ingest_app = typer.Typer(help="Ingest advisory data sources")
 app.add_typer(ingest_app, name="ingest")
 
+eval_app = typer.Typer(help="Evaluation harness")
+app.add_typer(eval_app, name="eval")
+
 
 @app.callback()
 def main() -> None:
@@ -195,6 +198,14 @@ def ask_cmd(scan_id: str, question: str) -> None:
     result = ask_scan(scan_id, question, default_store(), get_provider())
     console.print(f"[bold]{result['answer']}[/bold]")
     console.print(f"[dim]citations: {result['citations']}[/dim]")
+
+
+@eval_app.command("build")
+def eval_build_cmd(n: int = typer.Option(150, "--n")) -> None:
+    from vt.eval.build import build_eval_set
+
+    written = build_eval_set(n=n)
+    console.print(f"[green]Wrote {written} generated queries to data/eval/queries.jsonl[/green]")
 
 
 if __name__ == "__main__":
