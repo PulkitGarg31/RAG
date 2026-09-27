@@ -108,3 +108,31 @@ def test_fetch_missing_advisories_reports_what_it_could_not_use():
     )
     assert [a.id for a in advisories] == ["GHSA-462w-v97r-4m45"]
     assert set(unresolved) == {"GHSA-gone", "GHSA-404"}
+
+
+def _pillow(adv_id: str, aliases: list[str], fixed: str) -> Advisory:
+    return Advisory(id=adv_id, package="pillow", aliases=aliases, cve_ids=["CVE-2021-27922"], affected=[
+        {"package": {"name": "Pillow", "ecosystem": "PyPI"},
+         "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": fixed}]}]},
+    ])
+
+
+def test_mirrors_that_disagree_on_the_fix_use_a_version_every_mirror_calls_fixed():
+    ghsa = _pillow("GHSA-3wvg-mj6g-m9cv", ["CVE-2021-27922", "PYSEC-2021-41"], "8.1.2")
+    pysec = _pillow("PYSEC-2021-41", ["CVE-2021-27922", "GHSA-3wvg-mj6g-m9cv"], "8.1.1")
+
+    result = attribute_advisories([("pillow", "8.0.0")], [[pysec.id, ghsa.id]], {ghsa.id: ghsa, pysec.id: pysec})
+    findings = build_findings([("pillow", "8.0.0")], result, set(), {}, verify_fn=lambda p, v, a: True)
+
+    assert len(findings) == 1
+    assert findings[0].min_safe_version == "8.1.2"
+
+
+def test_mirror_without_fix_information_does_not_block_the_fix():
+    ghsa = _pillow("GHSA-x", ["CVE-2021-27922", "PYSEC-x"], "8.1.2")
+    pysec = Advisory(id="PYSEC-x", package="pillow", aliases=["CVE-2021-27922", "GHSA-x"], cve_ids=["CVE-2021-27922"])
+
+    result = attribute_advisories([("pillow", "8.0.0")], [[ghsa.id, pysec.id]], {ghsa.id: ghsa, pysec.id: pysec})
+    findings = build_findings([("pillow", "8.0.0")], result, set(), {}, verify_fn=lambda p, v, a: True)
+
+    assert findings[0].min_safe_version == "8.1.2"

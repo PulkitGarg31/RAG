@@ -22,23 +22,34 @@ def _row_to_advisory(row) -> Advisory:
     )
 
 
-def merge_alias_group(members: list[Advisory], package: str) -> Advisory:
+def _member_fixes(adv: Advisory, package: str) -> list[str]:
+    """This member's own fix versions for `package`, never from other packages in its record."""
+    return fixed_versions_for_package(adv.affected, package) if adv.affected else adv.fixed_versions
+
+
+def merge_alias_group(members: list[Advisory], package: str, installed: str) -> Advisory:
     """Collapse records for one vulnerability (e.g. a GHSA and its PYSEC mirror) into one,
-    keeping the most informative record's id and merging CVEs, aliases, fix versions and CVSS.
-    Fix versions are taken for `package` only, never from other packages in the record."""
+    keeping the most informative record's id and merging CVEs, aliases and CVSS.
+
+    Mirrors can disagree about which version fixes the same vulnerability: a GHSA record may say
+    8.1.2 while its PYSEC mirror says 8.1.1, and OSV's own querybatch still lists that GHSA id as
+    affecting 8.1.1 -- a version only one mirror calls fixed is still affected according to the
+    other. So the merged fix version must be one every mirror that HAS fix information agrees is
+    fixed, not the union of everyone's fixes (which lets the smallest, least-informed one win).
+    `min_safe_version` already computes exactly that ("smallest version above installed that fixes
+    every advisory given"), so we hand it one pseudo-advisory per member that has fix data.
+    Members with no fix information for this package give no evidence either way and are ignored,
+    not treated as vetoing the fix."""
     rep = min(members, key=lambda a: (a.cvss_score is None, not a.id.startswith("GHSA-"), a.id))
     all_ids = {x for a in members for x in (a.id, *a.aliases)}
-    fixed: list[str] = []
-    for a in members:
-        for v in (fixed_versions_for_package(a.affected, package) if a.affected else a.fixed_versions):
-            if v not in fixed:
-                fixed.append(v)
+    with_fixes = [replace(a, fixed_versions=fixes) for a in members if (fixes := _member_fixes(a, package))]
+    safe = min_safe_version(installed, with_fixes) if with_fixes else None
     scores = [a.cvss_score for a in members if a.cvss_score is not None]
     return replace(
         rep,
         aliases=sorted(all_ids - {rep.id}),
         cve_ids=sorted({c for a in members for c in a.cve_ids}),
-        fixed_versions=fixed,
+        fixed_versions=[safe] if safe else [],
         cvss_score=max(scores) if scores else None,
         group_id=min(all_ids),
     )
@@ -58,7 +69,7 @@ def attribute_advisories(
         by_group: dict[str, list[Advisory]] = {}
         for adv in advs:
             by_group.setdefault(groups[adv.id], []).append(adv)
-        result[(package, version)] = [merge_alias_group(m, package) for m in by_group.values()]
+        result[(package, version)] = [merge_alias_group(m, package, version) for m in by_group.values()]
     return result
 
 
