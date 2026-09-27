@@ -42,3 +42,11 @@ def test_safe_parse_handles_invalid_version_returns_none():
 def test_min_safe_version_skips_invalid_fixed_versions():
     adv = _adv(["not-a-version", "1.3.0"])
     assert min_safe_version("1.0.0", [adv]) == "1.3.0"
+
+
+def test_multi_branch_advisory_combined_with_second_advisory():
+    # A has two independent fix branches (1.1.0, 2.0.0); B only fixed by 1.5.0.
+    # A's earliest applicable fix (1.1.0) and B's (1.5.0) combine via max -> 1.5.0,
+    # which is >= both advisories' relevant fixed_versions thresholds.
+    advisories = [_adv(["1.1.0", "2.0.0"]), _adv(["1.5.0"])]
+    assert min_safe_version("1.0.0", advisories) == "1.5.0"

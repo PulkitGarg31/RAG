@@ -17,6 +17,10 @@ def query_batch(pkg_versions: list[tuple[str, str]], batch_size: int = 1000) -> 
             r = client.post(OSV_QUERYBATCH_URL, json={"queries": queries})
             r.raise_for_status()
             results = r.json().get("results", [])
+            assert len(results) == len(batch), (
+                f"OSV querybatch returned {len(results)} results for {len(batch)} queries; "
+                "response order no longer matches request order"
+            )
             all_ids.extend([v.get("id") for v in item.get("vulns", [])] for item in results)
     return all_ids
 
