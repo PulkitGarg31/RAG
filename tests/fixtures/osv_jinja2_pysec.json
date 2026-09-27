@@ -1,0 +1,19 @@
+{
+  "id": "PYSEC-2019-217",
+  "aliases": ["CVE-2019-10906", "GHSA-462w-v97r-4m45"],
+  "summary": "Jinja2 sandbox escape (PYSEC mirror)",
+  "details": "Duplicate advisory for the same CVE, sourced from PyPA's advisory database.",
+  "severity": [],
+  "affected": [
+    {
+      "package": {"name": "jinja2", "ecosystem": "PyPI"},
+      "ranges": [
+        {"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "2.11.3"}]}
+      ]
+    }
+  ],
+  "references": [],
+  "database_specific": {},
+  "published": "2021-05-27T00:00:00Z",
+  "modified": "2021-05-27T00:00:00Z"
+}
