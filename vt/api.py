@@ -3,6 +3,7 @@ from dataclasses import asdict
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from vt.db import get_conn
 from vt.scanner.scan import scan_requirements_text
 from vt.store import default_store
 
@@ -39,24 +40,40 @@ def ask(req: AskRequest):
 
 @app.get("/advisory/{advisory_id}")
 def get_advisory(advisory_id: str):
-    from vt.db import get_conn
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, package, cve_ids, summary, cvss_score FROM advisories WHERE id = %s",
+                (advisory_id,),
+            )
+            row = cur.fetchone()
+        if row is None:
+            return {"error": "not found"}
 
-    with get_conn() as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT a.id, a.package, a.cve_ids, a.summary, a.cvss_score, "
-            "k.date_added, e.epss, e.percentile "
-            "FROM advisories a "
-            "LEFT JOIN kev k ON k.cve_id = ANY(a.cve_ids) "
-            "LEFT JOIN epss e ON e.cve_id = ANY(a.cve_ids) "
-            "WHERE a.id = %s",
-            (advisory_id,),
-        )
-        row = cur.fetchone()
-    if row is None:
-        return {"error": "not found"}
+        advisory_id_, package, cve_ids, summary, cvss_score = row
+        cve_ids = cve_ids or []
+
+        kev_date_added = None
+        epss = None
+        epss_percentile = None
+        if cve_ids:
+            with conn.cursor() as cur:
+                cur.execute("SELECT date_added FROM kev WHERE cve_id = ANY(%s)", (cve_ids,))
+                kev_rows = cur.fetchall()
+            if kev_rows:
+                kev_date_added = kev_rows[0][0]
+
+            with conn.cursor() as cur:
+                cur.execute("SELECT epss, percentile FROM epss WHERE cve_id = ANY(%s)", (cve_ids,))
+                epss_rows = cur.fetchall()
+            if epss_rows:
+                epss = max(r[0] for r in epss_rows)
+                epss_percentile = max(r[1] for r in epss_rows)
+
     return {
-        "id": row[0], "package": row[1], "cve_ids": row[2], "summary": row[3],
-        "cvss_score": row[4], "kev_date_added": row[5], "epss": row[6], "epss_percentile": row[7],
+        "id": advisory_id_, "package": package, "cve_ids": cve_ids, "summary": summary,
+        "cvss_score": cvss_score, "kev_date_added": kev_date_added,
+        "epss": epss, "epss_percentile": epss_percentile,
     }
 
 

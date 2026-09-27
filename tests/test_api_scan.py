@@ -64,3 +64,50 @@ def test_health_endpoint():
     resp = client.get("/health")
     assert resp.status_code == 200
     assert "db" in resp.json()
+
+
+def test_advisory_endpoint_reduces_multi_cve_kev_epss_correctly(monkeypatch):
+    class FakeCursor:
+        def __init__(self):
+            self.last_sql = ""
+
+        def execute(self, sql, params=None):
+            self.last_sql = sql
+
+        def fetchall(self):
+            if "FROM kev" in self.last_sql:
+                return [("2024-01-01",)]
+            if "FROM epss" in self.last_sql:
+                return [(0.01, 0.25), (0.05, 0.85)]
+            return []
+
+        def fetchone(self):
+            if "FROM advisories WHERE id" in self.last_sql:
+                return ("GHSA-multi", "pkg", ["CVE-1", "CVE-2"], "summary", 8.0)
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    class FakeConn:
+        def cursor(self):
+            return FakeCursor()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr("vt.api.get_conn", lambda: FakeConn())
+
+    client = TestClient(app)
+    resp = client.get("/advisory/GHSA-multi")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["epss"] == 0.05
+    assert body["epss_percentile"] == 0.85
