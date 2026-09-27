@@ -25,7 +25,15 @@ def query_batch(pkg_versions: list[tuple[str, str]], batch_size: int = 1000) -> 
     return all_ids
 
 
-def fetch_vuln(vuln_id: str) -> dict:
-    r = httpx.get(OSV_VULN_URL.format(vuln_id), timeout=30)
-    r.raise_for_status()
-    return r.json()
+def fetch_vulns(vuln_ids: list[str]) -> dict[str, dict]:
+    """Full OSV records by id; ids that fail (404, network error) are left out."""
+    records: dict[str, dict] = {}
+    with httpx.Client(timeout=30) as client:
+        for vid in vuln_ids:
+            try:
+                r = client.get(OSV_VULN_URL.format(vid))
+                r.raise_for_status()
+                records[vid] = r.json()
+            except httpx.HTTPError:
+                continue
+    return records

@@ -160,8 +160,8 @@ def scan_cmd(
         table.add_row(f.priority, f.package, f.installed, f.advisory_id, f.min_safe_version or "-", str(f.verified))
     console.print(table)
 
-    if skipped:
-        console.print(f"[yellow]Skipped {len(skipped)} unpinned/unresolvable line(s).[/yellow]")
+    for s in skipped:
+        console.print(f"[yellow]Skipped {s['package']}: {s['reason']}[/yellow]")
 
     if json_out:
         import json as jsonlib

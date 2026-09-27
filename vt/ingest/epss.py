@@ -1,9 +1,12 @@
+import logging
 import time
 from collections.abc import Iterator
 
 import httpx
 
 from vt.models import EpssEntry
+
+logger = logging.getLogger(__name__)
 
 EPSS_URL = "https://api.first.org/data/v1/epss"
 
@@ -65,7 +68,9 @@ def ingest_epss(sleep_seconds: float = 0.3) -> int:
 
 
 def epss_for(conn, cves: list[str]) -> dict[str, EpssEntry]:
-    """Lazy per-scan lookup: read whatever is cached, do not block a scan on a full refresh."""
+    """Per-scan EPSS lookup. Reads the cache; CVEs not cached yet are fetched from FIRST in
+    batches of 100 and stored, so a scan never waits on a full `vt ingest epss` refresh.
+    If FIRST is unreachable the scan proceeds with whatever is cached."""
     if not cves:
         return {}
     with conn.cursor() as cur:
@@ -73,7 +78,18 @@ def epss_for(conn, cves: list[str]) -> dict[str, EpssEntry]:
             "SELECT cve_id, epss, percentile, score_date FROM epss WHERE cve_id = ANY(%s)",
             (cves,),
         )
-        return {
+        found = {
             row[0]: EpssEntry(cve_id=row[0], epss=row[1], percentile=row[2], score_date=row[3])
             for row in cur.fetchall()
         }
+    missing = [c for c in cves if c not in found]
+    if missing:
+        try:
+            fetched = [e for batch in chunk_cves(missing, size=100) for e in fetch_epss(batch)]
+        except httpx.HTTPError:
+            logger.warning("EPSS fetch failed for %d CVEs; using cached scores only", len(missing))
+            fetched = []
+        if fetched:
+            upsert_epss(conn, fetched)
+            found.update({e.cve_id: e for e in fetched})
+    return found

@@ -1,7 +1,7 @@
 import httpx
 import respx
 
-from vt.scanner.osv_client import query_batch
+from vt.scanner.osv_client import fetch_vulns, query_batch
 
 
 @respx.mock
@@ -37,3 +37,10 @@ def test_query_batch_chunks_at_1000(monkeypatch):
     result = query_batch(pkgs)
     assert calls == [1000, 500]
     assert len(result) == 1500
+
+
+@respx.mock
+def test_fetch_vulns_skips_ids_that_fail():
+    respx.get("https://api.osv.dev/v1/vulns/GHSA-ok").mock(return_value=httpx.Response(200, json={"id": "GHSA-ok"}))
+    respx.get("https://api.osv.dev/v1/vulns/GHSA-404").mock(return_value=httpx.Response(404))
+    assert fetch_vulns(["GHSA-ok", "GHSA-404"]) == {"GHSA-ok": {"id": "GHSA-ok"}}

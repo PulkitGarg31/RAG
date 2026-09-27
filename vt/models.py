@@ -61,6 +61,9 @@ class Finding:
     verified: bool
     kev: bool
     epss: float | None
+    epss_cve: str | None = None  # the CVE whose EPSS is reported (the highest of the advisory's CVEs)
+    epss_percentile: float | None = None  # that same CVE's percentile
+    aliases: list[str] = field(default_factory=list)  # other ids for the same vulnerability
     summary: str = ""
     rationale: str = ""
     citations: list[str] = field(default_factory=list)
