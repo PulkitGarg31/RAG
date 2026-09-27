@@ -151,5 +151,40 @@ def search_cmd(
     console.print(table)
 
 
+@app.command("scan")
+def scan_cmd(
+    requirements_file: str,
+    json_out: str | None = typer.Option(None, "--json"),
+    no_llm: bool = typer.Option(False, "--no-llm"),
+) -> None:
+    from pathlib import Path
+    from rich.table import Table
+    from vt.scanner.scan import scan_requirements_text
+
+    text = Path(requirements_file).read_text()
+    findings, skipped = scan_requirements_text(text)
+
+    if not no_llm:
+        from vt.llm.verdict import fill_verdicts
+
+        findings = fill_verdicts(findings)
+
+    table = Table(title=f"VulnTriage scan: {requirements_file}")
+    for col in ("priority", "package", "installed", "advisory_id", "min_safe_version", "verified"):
+        table.add_column(col)
+    for f in findings:
+        table.add_row(f.priority, f.package, f.installed, f.advisory_id, f.min_safe_version or "-", str(f.verified))
+    console.print(table)
+
+    if skipped:
+        console.print(f"[yellow]Skipped {len(skipped)} unpinned/unresolvable line(s).[/yellow]")
+
+    if json_out:
+        import json as jsonlib
+        from dataclasses import asdict
+
+        Path(json_out).write_text(jsonlib.dumps({"findings": [asdict(f) for f in findings], "skipped": skipped}, indent=2))
+
+
 if __name__ == "__main__":
     app()
