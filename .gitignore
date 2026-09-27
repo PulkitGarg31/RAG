@@ -3,10 +3,17 @@ docs/
 
 # Data and generated artifacts
 data/
+!data/eval/manual.jsonl
 reports/
 
 # Env / secrets
 .env
+
+# Local port remap (this machine has a native Postgres on 5432)
+docker-compose.override.yml
+
+# Claude Code local session state
+.claude/
 
 # Python
 __pycache__/

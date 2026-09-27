@@ -1,0 +1,115 @@
+from vt.scanner.requirements import parse_requirements, ParsedLine
+
+
+def test_parses_simple_pin():
+    result = parse_requirements("jinja2==2.10\n")
+    assert result == [ParsedLine(package="jinja2", version="2.10", skipped_reason=None)]
+
+
+def test_strips_comments():
+    result = parse_requirements("jinja2==2.10  # pinned for security\n# full line comment\n")
+    assert len(result) == 1
+    assert result[0].package == "jinja2"
+
+
+def test_strips_extras():
+    result = parse_requirements("requests[security]==2.19.0\n")
+    assert result[0].package == "requests"
+    assert result[0].version == "2.19.0"
+
+
+def test_strips_environment_markers():
+    result = parse_requirements('pywin32==300 ; sys_platform == "win32"\n')
+    assert result[0].package == "pywin32"
+    assert result[0].version == "300"
+
+
+def test_normalizes_package_name():
+    result = parse_requirements("PyYAML==5.3\n")
+    assert result[0].package == "pyyaml"
+
+
+def test_unpinned_line_is_skipped_not_guessed():
+    result = parse_requirements("requests>=2.0\n")
+    assert result[0].skipped_reason == "not pinned"
+    assert result[0].version is None
+
+
+def test_blank_lines_ignored():
+    result = parse_requirements("jinja2==2.10\n\n\npyyaml==5.3\n")
+    assert len(result) == 2
+
+
+def test_demo_fixture_parses_eight_pins():
+    from pathlib import Path
+
+    text = (Path(__file__).parent / "fixtures" / "requirements_demo.txt").read_text()
+    result = parse_requirements(text)
+    assert len(result) == 8
+    assert all(r.skipped_reason is None for r in result)
+
+
+def test_parses_local_version_identifier():
+    result = parse_requirements("foo==1.0.0+local\n")
+    assert result[0].version == "1.0.0+local"
+
+
+def test_utf8_bom_on_first_line_is_ignored():
+    result = parse_requirements(chr(0xFEFF) + "flask==1.0\njinja2==2.10\n")
+    assert [r.package for r in result] == ["flask", "jinja2"]
+    assert result[0].version == "1.0"
+
+
+def test_wildcard_pin_is_not_treated_as_pinned():
+    result = parse_requirements("requests==2.*\n")
+    assert result[0].package == "requests"
+    assert result[0].version is None
+    assert result[0].skipped_reason == "not pinned"
+
+
+def test_invalid_pinned_version_is_skipped():
+    result = parse_requirements("foo==abc\n")
+    assert result[0].package == "foo"
+    assert result[0].version is None
+    assert result[0].skipped_reason == "invalid version"
+
+
+def test_hash_pinned_lines_still_parse_as_pinned():
+    text = (
+        "foo==1.0 \\\n"
+        "    --hash=sha256:abc \\\n"
+        "    --hash=sha256:def\n"
+        "bar==2.0 --hash=sha256:123\n"
+    )
+    result = parse_requirements(text)
+    assert [(r.package, r.version, r.skipped_reason) for r in result] == [
+        ("foo", "1.0", None),
+        ("bar", "2.0", None),
+    ]
+
+
+def test_pip_option_lines_are_reported_or_ignored_not_parsed_as_packages():
+    text = "-r other.txt\n--index-url https://example.org/simple\n-e ./local\nfoo==1.0\n"
+    result = parse_requirements(text)
+    assert [(r.package, r.version, r.skipped_reason) for r in result] == [
+        ("-r other.txt", None, "unsupported pip option (not scanned)"),
+        ("-e ./local", None, "unsupported pip option (not scanned)"),
+        ("foo", "1.0", None),
+    ]
+
+
+def test_attached_and_long_form_pip_options_are_reported():
+    text = "-rbase.txt\n-cconstraints.txt\n-e.\n--requirement=x.txt\n--constraint c.txt\nfoo==1.0\n"
+    result = parse_requirements(text)
+    assert [r.skipped_reason for r in result[:5]] == ["unsupported pip option (not scanned)"] * 5
+    assert (result[5].package, result[5].version) == ("foo", "1.0")
+
+
+def test_continuation_backslash_without_space_still_pinned():
+    result = parse_requirements("bar==2.0\\\n    --hash=sha256:abc\n")
+    assert [(r.package, r.version, r.skipped_reason) for r in result] == [("bar", "2.0", None)]
+
+
+def test_bom_in_middle_of_file_does_not_drop_line():
+    text = "foo==1.0\n" + chr(0xFEFF) + "bar==2.0\n"
+    assert [(r.package, r.version) for r in parse_requirements(text)] == [("foo", "1.0"), ("bar", "2.0")]
