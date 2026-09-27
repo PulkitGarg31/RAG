@@ -55,6 +55,19 @@ def test_answer_question_rejects_non_string_citations_without_crashing():
     assert result == {"answer": "Insufficient validated evidence to answer.", "citations": []}
 
 
+def test_answer_question_accepts_bracketed_citations():
+    findings = [
+        Finding(package="jinja2", installed="2.10", advisory_id="GHSA-1", cve_ids=["CVE-1"],
+                priority="P1", min_safe_version="3.1.4", verified=True, kev=False, epss=0.5),
+    ]
+    provider = MagicMock()
+    provider.complete_json.return_value = '{"answer": "jinja2 is P1.", "citations": ["[FACT:findings]"]}'
+
+    result = answer_question("Which deps are risky?", findings, retrieved_chunks=[], provider=provider)
+
+    assert result == {"answer": "jinja2 is P1.", "citations": ["FACT:findings"]}
+
+
 def test_answer_question_survives_provider_failure():
     findings = [
         Finding(package="jinja2", installed="2.10", advisory_id="GHSA-1", cve_ids=["CVE-1"],

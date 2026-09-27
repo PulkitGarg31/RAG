@@ -2,7 +2,7 @@ import logging
 
 from vt.llm.prompts import build_user_prompt
 from vt.llm.provider import ProviderError, complete_json_checked
-from vt.llm.validate import extract_json
+from vt.llm.validate import extract_json, normalize_citation
 from vt.models import Finding
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,9 @@ def _validate_answer(raw: str | None, evidence_ids: set[str]) -> tuple[bool, dic
 
     if not all(isinstance(c, str) for c in citations):
         return False, None, "citations must be strings"
+
+    citations = [normalize_citation(c) for c in citations]
+    data["citations"] = citations
 
     unknown = [c for c in citations if c not in evidence_ids]
     if unknown:

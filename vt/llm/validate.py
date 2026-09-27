@@ -5,10 +5,33 @@ from dataclasses import dataclass
 from pydantic import BaseModel, ValidationError, field_validator
 
 
+def normalize_citation(citation: str) -> str:
+    """Models often copy an evidence id together with the square brackets it's printed in
+    ("[GHSA-x#summary#0]"); strip those so the subset check compares bare ids."""
+    return citation.strip().strip("[]").strip()
+
+
 class VerdictOutput(BaseModel):
     summary: str
     rationale: str
     citations: list[str]
+
+    @field_validator("citations", mode="before")
+    @classmethod
+    def normalize(cls, v: list[str]) -> list[str]:
+        if not isinstance(v, list):
+            return v
+        seen: set[str] = set()
+        normalized: list[str] = []
+        for c in v:
+            if not isinstance(c, str):
+                normalized.append(c)  # let Pydantic reject the non-string item
+                continue
+            nc = normalize_citation(c)
+            if nc and nc not in seen:
+                seen.add(nc)
+                normalized.append(nc)
+        return normalized
 
     @field_validator("citations")
     @classmethod

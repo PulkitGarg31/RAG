@@ -49,3 +49,20 @@ def test_validation_stage_distinguishes_bad_json_schema_and_citations():
     assert validate_verdict('{"summary": "s"}', {"GHSA-1"}).stage == "schema"
     assert validate_verdict('{"summary": "s", "rationale": "r", "citations": ["X"]}', {"GHSA-1"}).stage == "citations"
     assert validate_verdict('{"summary": "s", "rationale": "r", "citations": ["GHSA-1"]}', {"GHSA-1"}).stage == "ok"
+
+
+def test_bracketed_citations_are_normalized_and_accepted():
+    raw = '{"summary": "s", "rationale": "r", "citations": ["[GHSA-1]", " [FACT:pkg] ", "GHSA-1"]}'
+    result = validate_verdict(raw, {"GHSA-1", "FACT:pkg"})
+    assert result.ok and result.stage == "ok"
+    assert result.verdict.citations == ["GHSA-1", "FACT:pkg"]
+
+
+def test_brackets_do_not_launder_unknown_ids():
+    result = validate_verdict('{"summary": "s", "rationale": "r", "citations": ["[NVD]"]}', {"GHSA-1"})
+    assert not result.ok and result.stage == "citations"
+
+
+def test_citations_that_are_only_brackets_count_as_empty():
+    result = validate_verdict('{"summary": "s", "rationale": "r", "citations": ["[]"]}', {"GHSA-1"})
+    assert not result.ok and result.stage == "schema"
