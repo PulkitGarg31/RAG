@@ -30,7 +30,8 @@ def sample_advisories(conn, n: int = 150, seed: int = 42) -> list[Advisory]:
     with conn.cursor() as cur:
         cur.execute(
             "SELECT id, package, group_id, cve_ids, summary, details FROM advisories "
-            "WHERE length(details) > 200 AND cardinality(cve_ids) > 0"
+            "WHERE length(details) > 200 AND cardinality(cve_ids) > 0 "
+            "ORDER BY id"
         )
         rows = cur.fetchall()
     rng = random.Random(seed)
@@ -51,12 +52,17 @@ def build_eval_set(n: int = 150, seed: int = 42, out_path: Path = Path("data/eva
     written = 0
     with get_conn() as conn, open(out_path, "w") as f:
         for adv in sample_advisories(conn, n=n, seed=seed):
-            question = generate_query_for_advisory(adv, provider)
+            try:
+                question = generate_query_for_advisory(adv, provider)
+            except Exception as e:
+                print(f"Skipping {adv.id}: {e}")
+                continue
             if question is None:
                 continue
             f.write(json.dumps({
                 "qid": f"gen-{written}", "query": question,
                 "gold_group": adv.group_id or adv.id, "advisory_id": adv.id,
             }) + "\n")
+            f.flush()
             written += 1
     return written

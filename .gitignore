@@ -3,6 +3,7 @@ docs/
 
 # Data and generated artifacts
 data/
+!data/eval/manual.jsonl
 reports/
 
 # Env / secrets
