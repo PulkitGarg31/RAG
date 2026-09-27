@@ -227,5 +227,14 @@ def eval_retrieval_cmd() -> None:
     console.print("[green]Wrote reports/eval.md[/green]")
 
 
+@eval_app.command("generation")
+def eval_generation_cmd() -> None:
+    from vt.eval.generation import run_generation_checks
+
+    result = run_generation_checks(["tests/fixtures/requirements_demo.txt"])
+    for key, value in result.items():
+        console.print(f"{key}: {value:.2%}")
+
+
 if __name__ == "__main__":
     app()
