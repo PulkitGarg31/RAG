@@ -65,8 +65,8 @@ def scan_requirements_text(text: str) -> tuple[list[Finding], list[dict]]:
     vuln_id_lists = query_batch(pinned)
 
     with get_conn() as conn:
-        all_ids = sorted({vid for ids in vuln_id_lists for vid in ids})
-        advisories_by_pkg: dict[str, list[Advisory]] = {}
+        all_ids = sorted({vid for ids in vuln_id_lists for vid in ids if vid})
+        advisories_by_id: dict[str, Advisory] = {}
         if all_ids:
             with conn.cursor() as cur:
                 cur.execute(
@@ -74,8 +74,20 @@ def scan_requirements_text(text: str) -> tuple[list[Finding], list[dict]]:
                     (all_ids,),
                 )
                 for row in cur.fetchall():
-                    adv = Advisory(id=row[0], package=row[1], cve_ids=row[2], fixed_versions=row[3], cvss_score=row[4])
-                    advisories_by_pkg.setdefault(adv.package, []).append(adv)
+                    advisories_by_id[row[0]] = Advisory(
+                        id=row[0], package=row[1], cve_ids=row[2], fixed_versions=row[3], cvss_score=row[4]
+                    )
+
+        # Attribute advisories to packages using OSV's own per-package querybatch mapping,
+        # not the DB row's stored `package` field -- an advisory affecting multiple PyPI
+        # packages is stored under only one of them at ingest time, so re-deriving
+        # attribution from the DB row can mis-assign or drop findings for the others.
+        advisories_by_pkg: dict[str, list[Advisory]] = {}
+        for (package, _version), vuln_ids in zip(pinned, vuln_id_lists):
+            for vid in vuln_ids:
+                adv = advisories_by_id.get(vid)
+                if adv is not None:
+                    advisories_by_pkg.setdefault(package, []).append(adv)
 
         all_cves = sorted({c for advs in advisories_by_pkg.values() for a in advs for c in a.cve_ids})
         with conn.cursor() as cur:
@@ -85,9 +97,24 @@ def scan_requirements_text(text: str) -> tuple[list[Finding], list[dict]]:
         epss_entries = epss_for(conn, all_cves)
         epss_lookup = {cve: (e.epss, e.percentile) for cve, e in epss_entries.items()}
 
+        # Batch-verify every distinct (package, candidate min_safe_version) pair in ONE
+        # querybatch call instead of one network round-trip per (package, advisory) pair.
+        to_verify: set[tuple[str, str]] = set()
+        for package, installed in pinned:
+            for adv in advisories_by_pkg.get(package, []):
+                sv = min_safe_version(installed, [adv])
+                if sv is not None:
+                    to_verify.add((package, sv))
+
+        verified_lookup: dict[tuple[str, str], bool] = {}
+        if to_verify:
+            to_verify_list = sorted(to_verify)
+            verify_results = query_batch(to_verify_list)
+            for (package, sv), results in zip(to_verify_list, verify_results):
+                verified_lookup[(package, sv)] = len(results) == 0
+
         def verify_fn(package: str, version: str) -> bool:
-            results = query_batch([(package, version)])
-            return len(results[0]) == 0
+            return verified_lookup.get((package, version), False)
 
         findings = build_findings(pinned, advisories_by_pkg, kev_cves, epss_lookup, verify_fn)
 
