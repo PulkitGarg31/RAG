@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from vt.normalize import normalize_package
 
 _PIN_RE = re.compile(
-    r"^([A-Za-z0-9_.\-]+)(\[[^\]]*\])?\s*==\s*([A-Za-z0-9_.\-]+)"
+    r"^([A-Za-z0-9_.\-]+)(\[[^\]]*\])?\s*==\s*([A-Za-z0-9_.\-+]+)"
 )
 _UNPINNED_NAME_RE = re.compile(r"^([A-Za-z0-9_.\-]+)")
 

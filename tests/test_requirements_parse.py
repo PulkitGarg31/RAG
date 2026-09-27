@@ -47,3 +47,8 @@ def test_demo_fixture_parses_eight_pins():
     result = parse_requirements(text)
     assert len(result) == 8
     assert all(r.skipped_reason is None for r in result)
+
+
+def test_parses_local_version_identifier():
+    result = parse_requirements("foo==1.0.0+local\n")
+    assert result[0].version == "1.0.0+local"
