@@ -106,5 +106,48 @@ def index_cmd() -> None:
     console.print(f"[green]Indexed {len(all_chunks)} chunks (embeddings + BM25).[/green]")
 
 
+@app.command("search")
+def search_cmd(
+    query: str,
+    setup: str = typer.Option("hybrid_rerank", "--setup"),
+    k: int = typer.Option(5, "--k"),
+) -> None:
+    from rich.table import Table
+    from vt.retrieval.bm25 import BM25Retriever
+    from vt.retrieval.dense import DenseRetriever
+    from vt.retrieval.hybrid import HybridRetriever
+    from vt.retrieval.rerank import RerankedRetriever
+    from vt.bm25_index import load_bm25
+    from vt.db import get_conn
+    from pathlib import Path
+
+    bm25, chunk_ids = load_bm25(Path("data/bm25.pkl"))
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, advisory_id, content FROM chunks WHERE id = ANY(%s)", (chunk_ids,))
+            rows = {r[0]: r for r in cur.fetchall()}
+        advisory_ids = {cid: rows[cid][1] for cid in chunk_ids if cid in rows}
+        texts = {cid: rows[cid][2] for cid in chunk_ids if cid in rows}
+
+        bm25_retriever = BM25Retriever(bm25=bm25, chunk_ids=chunk_ids, advisory_ids=advisory_ids, texts=texts)
+        dense_retriever = DenseRetriever(get_conn=lambda: conn)
+        hybrid = HybridRetriever(bm25_retriever=bm25_retriever, dense_retriever=dense_retriever)
+        reranked = RerankedRetriever(hybrid=hybrid)
+
+        retrievers = {
+            "bm25": bm25_retriever, "dense": dense_retriever,
+            "hybrid": hybrid, "hybrid_rerank": reranked,
+        }
+        hits = retrievers[setup].search(query, k=k)
+
+    table = Table(title=f"{setup}: {query}")
+    table.add_column("advisory_id")
+    table.add_column("score")
+    table.add_column("text")
+    for h in hits:
+        table.add_row(h.advisory_id, f"{h.score:.4f}", h.text[:80])
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()

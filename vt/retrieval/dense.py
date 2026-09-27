@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Callable
 
+from pgvector import Vector
+
 from vt.embed import embed_query
 from vt.retrieval.base import Hit
 
@@ -10,7 +12,10 @@ class DenseRetriever:
     get_conn: Callable
 
     def search(self, query: str, k: int = 10, advisory_filter: set[str] | None = None) -> list[Hit]:
-        vec = list(embed_query(query))
+        # Wrap in pgvector's Vector so psycopg binds this parameter as the `vector`
+        # type (required for the <=> operator); a bare Python list gets bound as a
+        # numeric array and Postgres rejects `vector <=> real[]`.
+        vec = Vector(list(embed_query(query)))
         sql = "SELECT id, advisory_id, 1 - (embedding <=> %s) AS score, content FROM chunks"
         params: list = [vec]
         if advisory_filter is not None:
