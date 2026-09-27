@@ -19,11 +19,19 @@ class _UnionFind:
 
 
 def build_alias_groups(advisories: list[Advisory]) -> dict[str, str]:
-    """Return {advisory_id: group_id}. Advisories sharing any alias (or id-as-alias) share a group."""
+    """Return {advisory_id: group_id}. Advisories sharing any alias (or id-as-alias) share a group.
+
+    group_id is the lexicographically smallest member (advisory id or alias) of the group, so it
+    doesn't depend on ingest order or on which mirror records happen to be ingested.
+    """
     uf = _UnionFind()
     for adv in advisories:
-        keys = [adv.id, *adv.aliases]
         uf.find(adv.id)
-        for key in keys[1:]:
+        for key in adv.aliases:
             uf.union(adv.id, key)
-    return {adv.id: uf.find(adv.id) for adv in advisories}
+    smallest: dict[str, str] = {}
+    for member in list(uf.parent):
+        root = uf.find(member)
+        if root not in smallest or member < smallest[root]:
+            smallest[root] = member
+    return {adv.id: smallest[uf.find(adv.id)] for adv in advisories}

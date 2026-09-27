@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS chunks (
     embedding vector(384)
 );
 CREATE INDEX IF NOT EXISTS chunks_embedding_idx ON chunks USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS chunks_advisory_id_idx ON chunks (advisory_id);
 
 CREATE TABLE IF NOT EXISTS kev (
     cve_id TEXT PRIMARY KEY,

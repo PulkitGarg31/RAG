@@ -26,11 +26,14 @@ def db_init() -> None:
 
 
 @ingest_app.command("osv")
-def ingest_osv_cmd(limit: int | None = typer.Option(None, "--limit")) -> None:
+def ingest_osv_cmd(
+    limit: int | None = typer.Option(None, "--limit"),
+    force_download: bool = typer.Option(False, "--force-download", help="Re-download all.zip even if a fresh copy exists."),
+) -> None:
     """Download and upsert OSV (PyPI) advisories into the database."""
     from vt.ingest.osv import ingest_osv
 
-    n = ingest_osv(limit=limit)
+    n = ingest_osv(limit=limit, force_download=force_download)
     console.print(f"[green]Upserted {n} advisories.[/green]")
 
 
