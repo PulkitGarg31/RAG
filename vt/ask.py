@@ -19,7 +19,7 @@ def build_ask_dossier(findings: list[Finding], retrieved_chunks: list) -> str:
     return "\n".join(lines)
 
 
-def _validate_answer(raw: str, evidence_ids: set[str]) -> tuple[bool, dict | None, str | None]:
+def _validate_answer(raw: str | None, evidence_ids: set[str]) -> tuple[bool, dict | None, str | None]:
     """Validate an /ask response: must be JSON with an 'answer' string and a non-empty
     'citations' list that is a subset of the known evidence ids."""
     data = extract_json(raw)

@@ -27,10 +27,14 @@ class ValidationResult:
 
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 
+# Any value json.loads can return.
+JsonValue = dict | list | str | int | float | bool | None
 
-def extract_json(raw) -> object | None:
+
+def extract_json(raw: object) -> JsonValue:
     """Parse the JSON value in an LLM response, tolerating prose around a JSON object.
-    Returns None when raw is not a string or holds no parseable JSON."""
+    Returns None when raw is not a string or holds no parseable JSON (a JSON `null`
+    also comes back as None)."""
     if not isinstance(raw, str):
         return None
     try:
@@ -45,7 +49,7 @@ def extract_json(raw) -> object | None:
             return None
 
 
-def validate_verdict(raw: str, evidence_ids: set[str]) -> ValidationResult:
+def validate_verdict(raw: str | None, evidence_ids: set[str]) -> ValidationResult:
     data = extract_json(raw)
     if not isinstance(data, dict):
         return ValidationResult(ok=False, verdict=None, error="response was not a JSON object")

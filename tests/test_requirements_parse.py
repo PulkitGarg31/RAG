@@ -96,3 +96,20 @@ def test_pip_option_lines_are_reported_or_ignored_not_parsed_as_packages():
         ("-e ./local", None, "unsupported pip option (not scanned)"),
         ("foo", "1.0", None),
     ]
+
+
+def test_attached_and_long_form_pip_options_are_reported():
+    text = "-rbase.txt\n-cconstraints.txt\n-e.\n--requirement=x.txt\n--constraint c.txt\nfoo==1.0\n"
+    result = parse_requirements(text)
+    assert [r.skipped_reason for r in result[:5]] == ["unsupported pip option (not scanned)"] * 5
+    assert (result[5].package, result[5].version) == ("foo", "1.0")
+
+
+def test_continuation_backslash_without_space_still_pinned():
+    result = parse_requirements("bar==2.0\\\n    --hash=sha256:abc\n")
+    assert [(r.package, r.version, r.skipped_reason) for r in result] == [("bar", "2.0", None)]
+
+
+def test_bom_in_middle_of_file_does_not_drop_line():
+    text = "foo==1.0\n" + chr(0xFEFF) + "bar==2.0\n"
+    assert [(r.package, r.version) for r in parse_requirements(text)] == [("foo", "1.0"), ("bar", "2.0")]

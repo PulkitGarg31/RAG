@@ -1,4 +1,5 @@
 import json
+import uuid
 from pathlib import Path
 
 from vt.store import ScanStore
@@ -36,7 +37,7 @@ def test_get_falls_back_to_disk_when_not_in_memory(tmp_path: Path):
     assert store2.get(scan_id) is not None
 
 
-def test_get_rejects_ids_that_save_could_not_have_produced(tmp_path: Path):
+def test_get_rejects_ids_that_save_could_not_have_produced(tmp_path: Path, monkeypatch):
     outside = tmp_path / "secret.json"
     outside.write_text('{"findings": [], "skipped": []}')
     store = ScanStore(data_dir=tmp_path / "scans")
@@ -44,3 +45,9 @@ def test_get_rejects_ids_that_save_could_not_have_produced(tmp_path: Path):
     assert store.get(str(tmp_path / "secret")) is None
     assert store.get("ABCDEF123456") is None
     assert store.get("abc") is None
+    # Pin the id so it contains letters: an all-digit id would upper-case to itself.
+    monkeypatch.setattr(uuid, "uuid4", lambda: uuid.UUID("abcdef12-3456-4789-8abc-def012345678"))
+    saved_id = store.save([], skipped=[])
+    assert saved_id == "abcdef123456"
+    # On a case-insensitive filesystem (NTFS) the upper-cased path finds the saved file.
+    assert store.get(saved_id.upper()) is None
