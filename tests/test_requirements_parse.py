@@ -72,3 +72,27 @@ def test_invalid_pinned_version_is_skipped():
     assert result[0].package == "foo"
     assert result[0].version is None
     assert result[0].skipped_reason == "invalid version"
+
+
+def test_hash_pinned_lines_still_parse_as_pinned():
+    text = (
+        "foo==1.0 \\\n"
+        "    --hash=sha256:abc \\\n"
+        "    --hash=sha256:def\n"
+        "bar==2.0 --hash=sha256:123\n"
+    )
+    result = parse_requirements(text)
+    assert [(r.package, r.version, r.skipped_reason) for r in result] == [
+        ("foo", "1.0", None),
+        ("bar", "2.0", None),
+    ]
+
+
+def test_pip_option_lines_are_reported_or_ignored_not_parsed_as_packages():
+    text = "-r other.txt\n--index-url https://example.org/simple\n-e ./local\nfoo==1.0\n"
+    result = parse_requirements(text)
+    assert [(r.package, r.version, r.skipped_reason) for r in result] == [
+        ("-r other.txt", None, "unsupported pip option (not scanned)"),
+        ("-e ./local", None, "unsupported pip option (not scanned)"),
+        ("foo", "1.0", None),
+    ]

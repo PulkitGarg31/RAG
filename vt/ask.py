@@ -33,6 +33,9 @@ def _validate_answer(raw: str, evidence_ids: set[str]) -> tuple[bool, dict | Non
     if not isinstance(citations, list) or not citations:
         return False, None, "citations must be a non-empty list"
 
+    if not all(isinstance(c, str) for c in citations):
+        return False, None, "citations must be strings"
+
     unknown = [c for c in citations if c not in evidence_ids]
     if unknown:
         return False, None, f"citations not in evidence: {unknown}"
