@@ -208,5 +208,24 @@ def eval_build_cmd(n: int = typer.Option(150, "--n")) -> None:
     console.print(f"[green]Wrote {written} generated queries to data/eval/queries.jsonl[/green]")
 
 
+@eval_app.command("retrieval")
+def eval_retrieval_cmd() -> None:
+    import json as jsonlib
+    from pathlib import Path
+
+    from vt.eval.report import write_report
+    from vt.eval.retrieval import run_full_eval
+
+    queries = []
+    for name in ("data/eval/queries.jsonl", "data/eval/manual.jsonl"):
+        p = Path(name)
+        if p.exists():
+            queries.extend(jsonlib.loads(line) for line in p.read_text().splitlines() if line.strip())
+
+    rows = run_full_eval(queries)
+    write_report(rows, "reports/eval.md")
+    console.print("[green]Wrote reports/eval.md[/green]")
+
+
 if __name__ == "__main__":
     app()
