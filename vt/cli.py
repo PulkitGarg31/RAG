@@ -117,6 +117,7 @@ def search_cmd(
     from vt.retrieval.dense import DenseRetriever
     from vt.retrieval.hybrid import HybridRetriever
     from vt.retrieval.rerank import RerankedRetriever
+    from vt.retrieval.dedupe import dedupe_to_advisory
     from vt.bm25_index import load_bm25
     from vt.db import get_conn
     from pathlib import Path
@@ -139,6 +140,7 @@ def search_cmd(
             "hybrid": hybrid, "hybrid_rerank": reranked,
         }
         hits = retrievers[setup].search(query, k=k)
+        hits = dedupe_to_advisory(hits)
 
     table = Table(title=f"{setup}: {query}")
     table.add_column("advisory_id")

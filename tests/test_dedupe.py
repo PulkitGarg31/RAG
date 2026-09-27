@@ -11,3 +11,10 @@ def test_dedupe_keeps_best_ranked_chunk_per_advisory():
     deduped = dedupe_to_advisory(hits)
     assert [h.advisory_id for h in deduped] == ["ADV-1", "ADV-2"]
     assert next(h for h in deduped if h.advisory_id == "ADV-1").chunk_id == "c1"
+
+
+def test_dedupe_handles_empty_and_single_hit_lists():
+    assert dedupe_to_advisory([]) == []
+
+    single = [Hit(chunk_id="c1", advisory_id="ADV-1", score=0.5, text="a")]
+    assert dedupe_to_advisory(single) == single
