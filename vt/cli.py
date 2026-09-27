@@ -186,5 +186,16 @@ def scan_cmd(
         Path(json_out).write_text(jsonlib.dumps({"findings": [asdict(f) for f in findings], "skipped": skipped}, indent=2))
 
 
+@app.command("ask")
+def ask_cmd(scan_id: str, question: str) -> None:
+    from vt.ask import ask_scan
+    from vt.llm.provider import get_provider
+    from vt.store import default_store
+
+    result = ask_scan(scan_id, question, default_store(), get_provider())
+    console.print(f"[bold]{result['answer']}[/bold]")
+    console.print(f"[dim]citations: {result['citations']}[/dim]")
+
+
 if __name__ == "__main__":
     app()
