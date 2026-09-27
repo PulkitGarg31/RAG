@@ -92,19 +92,9 @@ def index_cmd() -> None:
         texts = [build_embedding_input(c.header, c.content, is_query=False) for c in all_chunks]
         vectors = embed_texts(texts)
 
-        with conn.cursor() as cur:
-            insert_sql = """
-                INSERT INTO chunks (id, advisory_id, kind, header, content, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding,
-                    header = EXCLUDED.header, content = EXCLUDED.content
-            """
-            rows_to_insert = [
-                (c.id, c.advisory_id, c.kind, c.header, c.content, vec.tolist())
-                for c, vec in zip(all_chunks, vectors)
-            ]
-            for i in range(0, len(rows_to_insert), 500):
-                cur.executemany(insert_sql, rows_to_insert[i : i + 500])
+        from vt.indexing import write_chunks
+
+        write_chunks(conn, all_chunks, vectors)
 
         bm25 = build_bm25([f"{c.header}\n{c.content}" for c in all_chunks])
         save_bm25(bm25, [c.id for c in all_chunks], Path("data/bm25.pkl"))

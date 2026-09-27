@@ -185,15 +185,27 @@ def upsert_advisories(conn, advisories: list[Advisory]) -> int:
     return len(rows)
 
 
+def parse_records(records) -> tuple[list[Advisory], list[str]]:
+    """Parse OSV records; return (advisories, ids of withdrawn records)."""
+    advisories: list[Advisory] = []
+    withdrawn: list[str] = []
+    for record in records:
+        if record.get("withdrawn"):
+            withdrawn.append(record["id"])
+            continue
+        adv = parse_osv_record(record)
+        if adv is not None:
+            advisories.append(adv)
+    return advisories, withdrawn
+
+
 def ingest_osv(limit: int | None = None, force_download: bool = False) -> int:
     from vt.db import get_conn
 
     zip_path = download_all_zip(Path("data/raw/osv_pypi_all.zip"), force=force_download)
-    advisories = []
-    for record in iter_osv_records(zip_path, limit=limit):
-        adv = parse_osv_record(record)
-        if adv is not None:
-            advisories.append(adv)
+    advisories, withdrawn = parse_records(iter_osv_records(zip_path, limit=limit))
     with get_conn() as conn:
-        n = upsert_advisories(conn, advisories)
-    return n
+        if withdrawn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM advisories WHERE id = ANY(%s)", (withdrawn,))
+        return upsert_advisories(conn, advisories)

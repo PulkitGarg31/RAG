@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from vt.ingest.osv import fixed_versions_for_package, parse_osv_record
+from vt.ingest.osv import fixed_versions_for_package, parse_osv_record, parse_records
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -94,3 +94,14 @@ def test_fixed_versions_merge_ranges_for_the_same_package():
          "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "2.6.0"}, {"fixed": "2.6.3"}]}]},
     ]
     assert fixed_versions_for_package(affected, "tensorflow") == ["2.5.3", "2.6.3"]
+
+
+def test_parse_records_separates_withdrawn_ids():
+    live = _load("osv_jinja2.json")
+    withdrawn = _load("osv_jinja2_pysec.json")
+    withdrawn["withdrawn"] = "2021-06-01T00:00:00Z"
+
+    advisories, withdrawn_ids = parse_records([live, withdrawn])
+
+    assert [a.id for a in advisories] == ["GHSA-462w-v97r-4m45"]
+    assert withdrawn_ids == ["PYSEC-2019-217"]

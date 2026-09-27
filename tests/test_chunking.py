@@ -80,3 +80,19 @@ def test_chunk_ids_are_unique_and_prefixed():
     ids = [c.id for c in chunks]
     assert len(ids) == len(set(ids))
     assert all(cid.startswith("GHSA-462w-v97r-4m45#") for cid in ids)
+
+
+def test_split_details_does_not_repeat_last_paragraph_as_its_own_chunk():
+    details = "a" * 700 + "\n\n" + "b" * 600
+    detail_chunks = [c for c in chunk_advisory(_adv(details=details)) if c.kind == "details"]
+    assert len(detail_chunks) == 1
+    assert detail_chunks[0].content == details
+
+
+def test_every_later_details_chunk_adds_a_new_paragraph():
+    paragraph = "Paragraph sentence text. " * 20
+    details = "\n\n".join(f"{i} {paragraph}" for i in range(5))
+    detail_chunks = [c for c in chunk_advisory(_adv(details=details)) if c.kind == "details"]
+    for prev, cur in zip(detail_chunks, detail_chunks[1:]):
+        prev_paras = set(prev.content.split("\n\n"))
+        assert any(p not in prev_paras for p in cur.content.split("\n\n"))

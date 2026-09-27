@@ -17,14 +17,17 @@ def _split_details(details: str) -> list[str]:
     pieces: list[str] = []
     current: list[str] = []
     current_len = 0
+    has_new = False  # does `current` hold anything beyond the carried-over overlap paragraph?
     for para in paragraphs:
         current.append(para)
         current_len += len(para)
+        has_new = True
         if current_len >= _TARGET_PIECE_CHARS:
             pieces.append("\n\n".join(current))
             current = [para]  # 1-paragraph overlap: carry the last paragraph forward
             current_len = len(para)
-    if current and (not pieces or "\n\n".join(current) != pieces[-1]):
+            has_new = False
+    if has_new:
         pieces.append("\n\n".join(current))
     return pieces or [details]
 
