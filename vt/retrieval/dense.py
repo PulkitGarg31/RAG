@@ -36,6 +36,10 @@ class DenseRetriever:
 
         conn = self.get_conn()
         with conn.cursor() as cur:
+            if advisory_filter is None:
+                # HNSW returns at most hnsw.ef_search rows (default 40) whatever the LIMIT;
+                # measured here: k=50 came back with 40 rows.
+                cur.execute("SELECT set_config('hnsw.ef_search', %s, false)", (str(max(40, k)),))
             cur.execute(sql, params)
             rows = cur.fetchall()
         return [Hit(chunk_id=r[0], advisory_id=r[1], score=float(r[2]), text=r[3]) for r in rows]

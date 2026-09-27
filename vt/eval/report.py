@@ -13,8 +13,9 @@ def render_markdown_table(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def write_report(rows: list[dict], path) -> None:
+def write_report(rows: list[dict], path, note: str = "") -> None:
     from pathlib import Path
 
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text("# Retrieval evaluation\n\n" + render_markdown_table(rows) + "\n")
+    body = "# Retrieval evaluation\n\n" + (note + "\n\n" if note else "") + render_markdown_table(rows) + "\n"
+    Path(path).write_text(body, encoding="utf-8")

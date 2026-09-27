@@ -204,7 +204,12 @@ def eval_retrieval_cmd() -> None:
             queries.extend(jsonlib.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip())
 
     rows = run_full_eval(queries)
-    write_report(rows, "reports/eval.md")
+    note = (
+        f"{rows[0]['queries']} queries evaluated ({rows[0]['skipped']} skipped: advisory no longer in the corpus). "
+        "Recall@k and MRR@10 are over the top-k distinct advisory alias groups, from 50 retrieved chunks "
+        "per query; p50 includes retrieving those 50 chunks (and reranking them, for the cross-encoder row)."
+    )
+    write_report(rows, "reports/eval.md", note=note)
     console.print("[green]Wrote reports/eval.md[/green]")
 
 
