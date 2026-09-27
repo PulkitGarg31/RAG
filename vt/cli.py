@@ -5,6 +5,11 @@ app = typer.Typer(help="VulnTriage-RAG CLI")
 console = Console()
 
 
+@app.callback()
+def main() -> None:
+    """VulnTriage-RAG CLI."""
+
+
 @app.command("db-init")
 def db_init() -> None:
     """Apply sql/schema.sql to the configured database."""
