@@ -20,8 +20,9 @@ class HybridRetriever:
     fanout: int = 50
 
     def search(self, query: str, k: int = 10, advisory_filter=None) -> list[Hit]:
-        bm25_hits = self.bm25_retriever.search(query, k=self.fanout, advisory_filter=advisory_filter)
-        dense_hits = self.dense_retriever.search(query, k=self.fanout, advisory_filter=advisory_filter)
+        fanout = max(self.fanout, k)
+        bm25_hits = self.bm25_retriever.search(query, k=fanout, advisory_filter=advisory_filter)
+        dense_hits = self.dense_retriever.search(query, k=fanout, advisory_filter=advisory_filter)
 
         by_id = {h.chunk_id: h for h in [*bm25_hits, *dense_hits]}
         fused = reciprocal_rank_fusion(

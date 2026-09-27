@@ -66,30 +66,16 @@ def generate_verdict(
 
 def fill_verdicts(findings: list[Finding]) -> list[Finding]:
     """Load each finding's advisory/kev/epss/top-5 chunks and generate a verdict for it."""
-    from vt.bm25_index import load_bm25
     from vt.db import get_conn
     from vt.llm.provider import get_provider
-    from vt.retrieval.bm25 import BM25Retriever
-    from vt.retrieval.dense import DenseRetriever
-    from vt.retrieval.hybrid import HybridRetriever
-    from vt.retrieval.rerank import RerankedRetriever
     from vt.models import Advisory, KevEntry
-    from pathlib import Path
+    from vt.retrieval.factory import build_retrievers
 
     provider = get_provider()
-    bm25_path = Path("data/bm25.pkl")
-    bm25, chunk_ids = load_bm25(bm25_path) if bm25_path.exists() else (None, [])
 
     with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, advisory_id, content FROM chunks WHERE id = ANY(%s)", (chunk_ids,))
-            chunk_rows = {r[0]: r for r in cur.fetchall()}
-        advisory_ids = {cid: chunk_rows[cid][1] for cid in chunk_ids if cid in chunk_rows}
-        texts = {cid: chunk_rows[cid][2] for cid in chunk_ids if cid in chunk_rows}
-
-        bm25_retriever = BM25Retriever(bm25=bm25, chunk_ids=chunk_ids, advisory_ids=advisory_ids, texts=texts) if bm25 else None
-        dense_retriever = DenseRetriever(get_conn=lambda: conn)
-        reranked = RerankedRetriever(hybrid=HybridRetriever(bm25_retriever=bm25_retriever, dense_retriever=dense_retriever)) if bm25_retriever else None
+        retrievers = build_retrievers(conn)
+        reranked = retrievers.reranked if retrievers else None
 
         for finding in findings:
             with conn.cursor() as cur:

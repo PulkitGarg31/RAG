@@ -19,7 +19,7 @@ class RerankedRetriever:
     hybrid_k: int = 30
 
     def search(self, query: str, k: int = 10, advisory_filter=None) -> list[Hit]:
-        candidates = self.hybrid.search(query, k=self.hybrid_k, advisory_filter=advisory_filter)
+        candidates = self.hybrid.search(query, k=max(self.hybrid_k, k), advisory_filter=advisory_filter)
         if not candidates:
             return []
         model = self.cross_encoder or _cross_encoder()

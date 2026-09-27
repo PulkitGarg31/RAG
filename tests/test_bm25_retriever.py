@@ -25,3 +25,14 @@ def test_bm25_retriever_respects_advisory_filter():
     hits = retriever.search("buffer overflow", k=3, advisory_filter={"ADV-2"})
     assert all(h.advisory_id == "ADV-2" for h in hits)
     assert len(hits) == 2
+
+
+def test_bm25_retriever_skips_chunk_ids_missing_from_the_database():
+    chunk_ids = ["c1", "gone"]
+    texts = {"c1": "yaml code execution", "gone": "yaml yaml code"}
+    bm25 = build_bm25([texts[c] for c in chunk_ids])
+    retriever = BM25Retriever(bm25=bm25, chunk_ids=chunk_ids, advisory_ids={"c1": "ADV-1"}, texts={"c1": texts["c1"]})
+
+    hits = retriever.search("yaml", k=5)
+
+    assert [h.chunk_id for h in hits] == ["c1"]

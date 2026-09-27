@@ -109,34 +109,22 @@ def search_cmd(
     k: int = typer.Option(5, "--k"),
 ) -> None:
     from rich.table import Table
-    from vt.retrieval.bm25 import BM25Retriever
-    from vt.retrieval.dense import DenseRetriever
-    from vt.retrieval.hybrid import HybridRetriever
-    from vt.retrieval.rerank import RerankedRetriever
-    from vt.retrieval.dedupe import dedupe_to_advisory
-    from vt.bm25_index import load_bm25
+
     from vt.db import get_conn
-    from pathlib import Path
+    from vt.retrieval.dedupe import dedupe_to_advisory
+    from vt.retrieval.factory import build_retrievers
 
-    bm25, chunk_ids = load_bm25(Path("data/bm25.pkl"))
     with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, advisory_id, content FROM chunks WHERE id = ANY(%s)", (chunk_ids,))
-            rows = {r[0]: r for r in cur.fetchall()}
-        advisory_ids = {cid: rows[cid][1] for cid in chunk_ids if cid in rows}
-        texts = {cid: rows[cid][2] for cid in chunk_ids if cid in rows}
-
-        bm25_retriever = BM25Retriever(bm25=bm25, chunk_ids=chunk_ids, advisory_ids=advisory_ids, texts=texts)
-        dense_retriever = DenseRetriever(get_conn=lambda: conn)
-        hybrid = HybridRetriever(bm25_retriever=bm25_retriever, dense_retriever=dense_retriever)
-        reranked = RerankedRetriever(hybrid=hybrid)
-
-        retrievers = {
-            "bm25": bm25_retriever, "dense": dense_retriever,
-            "hybrid": hybrid, "hybrid_rerank": reranked,
-        }
-        hits = retrievers[setup].search(query, k=k)
-        hits = dedupe_to_advisory(hits)
+        retrievers = build_retrievers(conn)
+        if retrievers is None:
+            console.print("[red]No BM25 index found; run `vt index` first.[/red]")
+            raise typer.Exit(1)
+        by_name = retrievers.by_name()
+        if setup not in by_name:
+            console.print(f"[red]Unknown setup {setup!r}; choose from {sorted(by_name)}.[/red]")
+            raise typer.Exit(1)
+        # Over-fetch chunks so dedupe to alias groups still leaves k advisories.
+        hits = dedupe_to_advisory(by_name[setup].search(query, k=k * 5), retrievers.group_of)[:k]
 
     table = Table(title=f"{setup}: {query}")
     table.add_column("advisory_id")

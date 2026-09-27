@@ -1,6 +1,10 @@
+import logging
+
 from vt.llm.prompts import build_user_prompt
 from vt.llm.validate import extract_json
 from vt.models import Finding
+
+logger = logging.getLogger(__name__)
 
 ASK_SYSTEM_PROMPT = (
     "You are a security triage assistant answering questions about one dependency scan. "
@@ -73,30 +77,16 @@ def ask_scan(scan_id: str, question: str, store, provider) -> dict:
 
     chunks = []
     try:
-        from pathlib import Path
-
-        from vt.bm25_index import load_bm25
         from vt.db import get_conn
-        from vt.retrieval.bm25 import BM25Retriever
-        from vt.retrieval.dense import DenseRetriever
-        from vt.retrieval.hybrid import HybridRetriever
-        from vt.retrieval.rerank import RerankedRetriever
+        from vt.retrieval.factory import build_retrievers
 
-        bm25_path = Path("data/bm25.pkl")
-        if bm25_path.exists():
-            bm25, chunk_ids = load_bm25(bm25_path)
-            with get_conn() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT id, advisory_id, content FROM chunks WHERE id = ANY(%s)", (chunk_ids,))
-                    rows = {r[0]: r for r in cur.fetchall()}
-                advisory_ids = {cid: rows[cid][1] for cid in chunk_ids if cid in rows}
-                texts = {cid: rows[cid][2] for cid in chunk_ids if cid in rows}
-                bm25_retriever = BM25Retriever(bm25=bm25, chunk_ids=chunk_ids, advisory_ids=advisory_ids, texts=texts)
-                dense_retriever = DenseRetriever(get_conn=lambda: conn)
-                reranked = RerankedRetriever(hybrid=HybridRetriever(bm25_retriever=bm25_retriever, dense_retriever=dense_retriever))
-                hits = dedupe_to_advisory(reranked.search(question, k=8, advisory_filter=advisory_filter))
-                chunks = hits
+        with get_conn() as conn:
+            retrievers = build_retrievers(conn)
+            if retrievers is not None:
+                hits = retrievers.reranked.search(question, k=8, advisory_filter=advisory_filter)
+                chunks = dedupe_to_advisory(hits, retrievers.group_of)
     except Exception:
+        logger.warning("ask_scan retrieval failed; answering from the findings table only", exc_info=True)
         chunks = []
 
     return answer_question(question, findings, chunks, provider)

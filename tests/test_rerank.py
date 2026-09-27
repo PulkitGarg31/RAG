@@ -21,3 +21,10 @@ def test_reranked_retriever_reorders_by_cross_encoder_score():
 
     assert hits[0].chunk_id == "c2"
     fake_hybrid.search.assert_called_once_with("yaml load rce", k=30, advisory_filter=None)
+
+
+def test_reranked_retriever_widens_candidate_pool_when_asked_for_more_than_hybrid_k():
+    fake_hybrid = MagicMock()
+    fake_hybrid.search.return_value = []
+    RerankedRetriever(hybrid=fake_hybrid, cross_encoder=MagicMock(), hybrid_k=30).search("q", k=50)
+    fake_hybrid.search.assert_called_once_with("q", k=50, advisory_filter=None)
