@@ -31,5 +31,23 @@ def ingest_osv_cmd(limit: int | None = typer.Option(None, "--limit")) -> None:
     console.print(f"[green]Upserted {n} advisories.[/green]")
 
 
+@ingest_app.command("kev")
+def ingest_kev_cmd() -> None:
+    """Download and upsert the CISA KEV catalog into the database."""
+    from vt.ingest.kev import ingest_kev
+
+    n = ingest_kev()
+    console.print(f"[green]Upserted {n} KEV entries.[/green]")
+
+
+@ingest_app.command("epss")
+def ingest_epss_cmd() -> None:
+    """Fetch and upsert FIRST EPSS scores for all known CVEs."""
+    from vt.ingest.epss import ingest_epss
+
+    n = ingest_epss()
+    console.print(f"[green]Upserted {n} EPSS rows.[/green]")
+
+
 if __name__ == "__main__":
     app()

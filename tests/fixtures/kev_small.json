@@ -1,0 +1,13 @@
+{
+  "vulnerabilities": [
+    {
+      "cveID": "CVE-2019-10906",
+      "vendorProject": "Pallets",
+      "product": "Jinja2",
+      "dateAdded": "2024-01-15",
+      "dueDate": "2024-02-05",
+      "knownRansomwareCampaignUse": "Unknown",
+      "notes": ""
+    }
+  ]
+}
