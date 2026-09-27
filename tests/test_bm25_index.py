@@ -17,7 +17,6 @@ def test_build_bm25_ranks_relevant_doc_higher():
     # term's document frequency equals exactly half the corpus size (df=1 of
     # N=2), which makes Okapi's idf formula evaluate to exactly 0 for every
     # query term and collapses both scores to 0.0 regardless of relevance.
-    chunk_ids = ["a", "b", "c"]
     texts = [
         "yaml load arbitrary code execution",
         "unrelated pillow image crash",

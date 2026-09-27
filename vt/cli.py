@@ -100,7 +100,7 @@ def index_cmd() -> None:
             for i in range(0, len(rows_to_insert), 500):
                 cur.executemany(insert_sql, rows_to_insert[i : i + 500])
 
-        bm25 = build_bm25([c.content for c in all_chunks])
+        bm25 = build_bm25([f"{c.header}\n{c.content}" for c in all_chunks])
         save_bm25(bm25, [c.id for c in all_chunks], Path("data/bm25.pkl"))
 
     console.print(f"[green]Indexed {len(all_chunks)} chunks (embeddings + BM25).[/green]")
