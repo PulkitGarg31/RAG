@@ -1,6 +1,11 @@
+import os
+
+import pytest
+
 from vt.db import get_conn
 
 
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="requires a live Postgres")
 def test_can_connect_and_see_tables():
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
