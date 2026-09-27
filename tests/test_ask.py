@@ -26,3 +26,17 @@ def test_answer_question_validates_citations(monkeypatch):
     result = answer_question("Which deps are risky?", findings, retrieved_chunks=[], provider=fake_provider)
     assert result["citations"] == ["FACT:findings"]
     assert "jinja2" in result["answer"]
+
+
+def test_answer_question_rejects_non_object_json_without_crashing():
+    findings = [
+        Finding(package="jinja2", installed="2.10", advisory_id="GHSA-1", cve_ids=["CVE-1"],
+                priority="P1", min_safe_version="3.1.4", verified=True, kev=False, epss=0.5),
+    ]
+    provider = MagicMock()
+    provider.complete_json.return_value = '["not", "an", "object"]'
+
+    result = answer_question("Which deps are risky?", findings, retrieved_chunks=[], provider=provider)
+
+    assert result == {"answer": "Insufficient validated evidence to answer.", "citations": []}
+    assert provider.complete_json.call_count == 2

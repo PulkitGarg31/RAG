@@ -31,3 +31,14 @@ def test_prose_around_json_is_extracted():
     raw = 'Sure, here is the JSON:\n{"summary": "s", "rationale": "r", "citations": ["GHSA-1"]}\nHope that helps!'
     result = validate_verdict(raw, evidence_ids={"GHSA-1"})
     assert result.ok
+
+
+def test_none_response_is_rejected_not_crashing():
+    result = validate_verdict(None, evidence_ids={"GHSA-1"})
+    assert not result.ok
+    assert result.verdict is None
+
+
+def test_non_object_json_is_rejected():
+    result = validate_verdict('["a", "b"]', evidence_ids={"GHSA-1"})
+    assert not result.ok

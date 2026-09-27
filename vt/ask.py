@@ -1,7 +1,5 @@
-import json
-import re
-
 from vt.llm.prompts import build_user_prompt
+from vt.llm.validate import extract_json
 from vt.models import Finding
 
 ASK_SYSTEM_PROMPT = (
@@ -10,8 +8,6 @@ ASK_SYSTEM_PROMPT = (
     "Answer arithmetic questions (counts, 'most') by reading the [FACT:findings] table. "
     'Return JSON only: {"answer": str, "citations": [evidence ids]}'
 )
-
-_JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 
 def build_ask_dossier(findings: list[Finding], retrieved_chunks: list) -> str:
@@ -23,25 +19,12 @@ def build_ask_dossier(findings: list[Finding], retrieved_chunks: list) -> str:
     return "\n".join(lines)
 
 
-def _extract_json(raw: str) -> dict | None:
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        match = _JSON_OBJECT_RE.search(raw)
-        if not match:
-            return None
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError:
-            return None
-
-
 def _validate_answer(raw: str, evidence_ids: set[str]) -> tuple[bool, dict | None, str | None]:
     """Validate an /ask response: must be JSON with an 'answer' string and a non-empty
     'citations' list that is a subset of the known evidence ids."""
-    data = _extract_json(raw)
-    if data is None:
-        return False, None, "response was not valid JSON"
+    data = extract_json(raw)
+    if not isinstance(data, dict):
+        return False, None, "response was not a JSON object"
 
     if not isinstance(data.get("answer"), str) or not data["answer"]:
         return False, None, "missing or empty 'answer' field"

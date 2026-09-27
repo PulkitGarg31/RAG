@@ -52,3 +52,23 @@ def test_demo_fixture_parses_eight_pins():
 def test_parses_local_version_identifier():
     result = parse_requirements("foo==1.0.0+local\n")
     assert result[0].version == "1.0.0+local"
+
+
+def test_utf8_bom_on_first_line_is_ignored():
+    result = parse_requirements(chr(0xFEFF) + "flask==1.0\njinja2==2.10\n")
+    assert [r.package for r in result] == ["flask", "jinja2"]
+    assert result[0].version == "1.0"
+
+
+def test_wildcard_pin_is_not_treated_as_pinned():
+    result = parse_requirements("requests==2.*\n")
+    assert result[0].package == "requests"
+    assert result[0].version is None
+    assert result[0].skipped_reason == "not pinned"
+
+
+def test_invalid_pinned_version_is_skipped():
+    result = parse_requirements("foo==abc\n")
+    assert result[0].package == "foo"
+    assert result[0].version is None
+    assert result[0].skipped_reason == "invalid version"

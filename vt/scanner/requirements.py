@@ -1,10 +1,13 @@
 import re
 from dataclasses import dataclass
 
+from packaging.version import InvalidVersion, Version
+
 from vt.normalize import normalize_package
 
+# Anchored at the end so wildcard pins like `pkg==2.*` fall through to "not pinned".
 _PIN_RE = re.compile(
-    r"^([A-Za-z0-9_.\-]+)(\[[^\]]*\])?\s*==\s*([A-Za-z0-9_.\-+]+)"
+    r"^([A-Za-z0-9_.\-]+)(\[[^\]]*\])?\s*==\s*([A-Za-z0-9_.\-+!]+)\s*$"
 )
 _UNPINNED_NAME_RE = re.compile(r"^([A-Za-z0-9_.\-]+)")
 
@@ -24,7 +27,7 @@ def _strip_comment_and_marker(line: str) -> str:
 
 def parse_requirements(text: str) -> list[ParsedLine]:
     results: list[ParsedLine] = []
-    for raw_line in text.splitlines():
+    for raw_line in text.lstrip(chr(0xFEFF)).splitlines():
         line = _strip_comment_and_marker(raw_line)
         if not line:
             continue
@@ -32,6 +35,11 @@ def parse_requirements(text: str) -> list[ParsedLine]:
         pin_match = _PIN_RE.match(line)
         if pin_match:
             name, _extras, version = pin_match.groups()
+            try:
+                Version(version)
+            except InvalidVersion:
+                results.append(ParsedLine(package=normalize_package(name), version=None, skipped_reason="invalid version"))
+                continue
             results.append(ParsedLine(package=normalize_package(name), version=version, skipped_reason=None))
             continue
 

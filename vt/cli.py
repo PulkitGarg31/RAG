@@ -164,7 +164,7 @@ def scan_cmd(
     from rich.table import Table
     from vt.scanner.scan import scan_requirements_text
 
-    text = Path(requirements_file).read_text()
+    text = Path(requirements_file).read_text(encoding="utf-8-sig")
     findings, skipped = scan_requirements_text(text)
 
     if not no_llm:
@@ -220,7 +220,7 @@ def eval_retrieval_cmd() -> None:
     for name in ("data/eval/queries.jsonl", "data/eval/manual.jsonl"):
         p = Path(name)
         if p.exists():
-            queries.extend(jsonlib.loads(line) for line in p.read_text().splitlines() if line.strip())
+            queries.extend(jsonlib.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip())
 
     rows = run_full_eval(queries)
     write_report(rows, "reports/eval.md")

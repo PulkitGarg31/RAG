@@ -21,7 +21,7 @@ def run_generation_checks(requirements_files: list[str]) -> dict:
 
     all_findings = []
     for path in requirements_files:
-        findings, _ = scan_requirements_text(Path(path).read_text())
+        findings, _ = scan_requirements_text(Path(path).read_text(encoding="utf-8-sig"))
         all_findings.extend(fill_verdicts(findings))
 
     verified_count = sum(1 for f in all_findings if f.verified)

@@ -34,3 +34,13 @@ def test_get_falls_back_to_disk_when_not_in_memory(tmp_path: Path):
     # simulate a fresh process: new store instance, same data dir
     store2 = ScanStore(data_dir=tmp_path)
     assert store2.get(scan_id) is not None
+
+
+def test_get_rejects_ids_that_save_could_not_have_produced(tmp_path: Path):
+    outside = tmp_path / "secret.json"
+    outside.write_text('{"findings": [], "skipped": []}')
+    store = ScanStore(data_dir=tmp_path / "scans")
+    assert store.get("../secret") is None
+    assert store.get(str(tmp_path / "secret")) is None
+    assert store.get("ABCDEF123456") is None
+    assert store.get("abc") is None
